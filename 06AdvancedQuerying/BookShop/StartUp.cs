@@ -20,7 +20,7 @@
 
             string command = Console.ReadLine();
 
-            Console.WriteLine(GetBooksReleasedBefore(db, command));
+            Console.WriteLine(GetMostRecentBooks(db));
         }
 
         //1. Age Restriction
@@ -125,7 +125,7 @@
             var titles = context.BooksCategories
                 .Where(bc => categoriesNemes.Contains(bc.Category.Name.ToLower()))
                 .OrderBy(x => x.Book.Title)
-                .Select(x =>  x.Book.Title)
+                .Select(x => x.Book.Title)
                 .ToList();
 
             return string.Join(Environment.NewLine, titles);
@@ -155,6 +155,96 @@
             }
 
             return result.ToString().Trim();
+        }
+
+        //7. Author Search
+        public static string GetAuthorNamesEndingIn(BookShopContext context, string input)
+        {
+            var authors = context.Authors
+                .Where(a => a.FirstName.EndsWith(input))
+                .OrderBy(x => x.FirstName)
+                .Select(x => x.FirstName + " " + x.LastName)
+                .ToList();
+
+            return string.Join(Environment.NewLine, authors);
+        }
+
+        //8. Book Search
+        public static string GetBookTitlesContaining(BookShopContext context, string input)
+        {
+            var titles = context.Books
+                            .Where(b => b.Title.ToLower().Contains(input.ToLower()))
+                            .OrderBy(x => x.Title)
+                            .Select(x => x.Title)
+                            .ToList();
+
+            return string.Join(Environment.NewLine, titles);
+        }
+
+        //9. Book Search by Author
+        public static string GetBooksByAuthor(BookShopContext context, string input)
+        {
+            var titles = context.Books
+                         .Where(b => b.Author.LastName.ToLower().StartsWith(input.ToLower()))
+                         .OrderBy(x => x.BookId)
+                         .Select(x => x.Title + " (" + x.Author.FirstName + " " + x.Author.LastName + ")")
+                         .ToList();
+
+            return string.Join(Environment.NewLine, titles);
+        }
+
+        //10. Count Books
+        public static string CountBooks(BookShopContext context, int lengthCheck)
+        {
+            var titlesCount = context.Books
+                         .Where(b => b.Title.Length > lengthCheck)
+                         .ToList();
+
+            return string.Join(Environment.NewLine, titlesCount.Count);
+        }
+
+        //11. Total Book Copies
+        public static string CountCopiesByAuthor(BookShopContext context)
+        {
+            var copies = context.Authors
+                         .OrderByDescending(a => a.Books.Sum(b => b.Copies))
+                         .Select(x => x.FirstName + " " + x.LastName + " - " + x.Books.Sum(b => b.Copies))
+                         .ToList();
+
+            return string.Join(Environment.NewLine, copies);
+        }
+
+        //12. Profit by Category
+        public static string GetTotalProfitByCategory(BookShopContext context)
+        {
+            var profit = context.Categories
+                         .Select(c => new
+                         {
+                             Profit = c.CategoryBooks.Sum(bc => bc.Book.Copies * bc.Book.Price),
+                             c.Name
+                         })
+                         .OrderByDescending(x => x.Profit)
+                         .ThenBy(x => x.Name)
+                         .Select(x => $"{x.Name} ${x.Profit:f2}")
+                         .ToList();
+
+            return string.Join(Environment.NewLine, profit);
+        }
+
+        //13. Most Recent Books
+        public static string GetMostRecentBooks(BookShopContext context)
+        {
+            var categories = context.BooksCategories
+                            .Select(bc => new
+                            {
+                                bc.Category.Name,
+                                bc.Book.Title,
+                                bc.Book.ReleaseDate.Value.Year
+                            })
+                            .ToDictionary(k => k.Name, v => new string[] { v.Title, v.Year.ToString() })
+                            .OrderByDescending(x => x.Value[2]);
+
+            return string.Join(Environment.NewLine, categories);
         }
     }
 }
