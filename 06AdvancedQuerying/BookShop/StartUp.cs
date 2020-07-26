@@ -1,14 +1,11 @@
 ﻿namespace BookShop
 {
-    using BookShop.Models;
     using BookShop.Models.Enums;
     using Data;
     using Initializer;
     using System;
-    using System.Collections.Generic;
     using System.Globalization;
     using System.Linq;
-    using System.Security.Cryptography.X509Certificates;
     using System.Text;
 
     public class StartUp
@@ -16,11 +13,11 @@
         public static void Main()
         {
             using var db = new BookShopContext();
-            // DbInitializer.ResetDatabase(db);
+            DbInitializer.ResetDatabase(db);
 
             string command = Console.ReadLine();
 
-            Console.WriteLine(GetMostRecentBooks(db));
+            Console.WriteLine(RemoveBooks(db));
         }
 
         //1. Age Restriction
@@ -162,8 +159,8 @@
         {
             var authors = context.Authors
                 .Where(a => a.FirstName.EndsWith(input))
-                .OrderBy(x => x.FirstName)
                 .Select(x => x.FirstName + " " + x.LastName)
+                .OrderBy(x => x)
                 .ToList();
 
             return string.Join(Environment.NewLine, authors);
@@ -194,13 +191,13 @@
         }
 
         //10. Count Books
-        public static string CountBooks(BookShopContext context, int lengthCheck)
+        public static int CountBooks(BookShopContext context, int lengthCheck)
         {
             var titlesCount = context.Books
                          .Where(b => b.Title.Length > lengthCheck)
                          .ToList();
 
-            return string.Join(Environment.NewLine, titlesCount.Count);
+            return titlesCount.Count;
         }
 
         //11. Total Book Copies
@@ -234,17 +231,55 @@
         //13. Most Recent Books
         public static string GetMostRecentBooks(BookShopContext context)
         {
-            var categories = context.BooksCategories
-                            .Select(bc => new
-                            {
-                                bc.Category.Name,
-                                bc.Book.Title,
-                                bc.Book.ReleaseDate.Value.Year
-                            })
-                            .ToDictionary(k => k.Name, v => new string[] { v.Title, v.Year.ToString() })
-                            .OrderByDescending(x => x.Value[2]);
+            var result = new StringBuilder();
 
-            return string.Join(Environment.NewLine, categories);
+            var categories = context.Categories
+                            .Select(c => new
+                            {
+                                c.Name,
+                                Books = c.CategoryBooks.Select(x => x.Book).OrderByDescending(x => x.ReleaseDate).Take(3)
+                            })
+                            .OrderBy(x => x.Name);
+
+            foreach (var categorie in categories)
+            {
+                result.AppendLine($"--{categorie.Name}");
+
+                foreach (var book in categorie.Books)
+                {
+                    result.AppendLine($"{book.Title} ({book.ReleaseDate.Value.Year})");
+                }
+            }
+
+            return result.ToString().Trim();
+        }
+
+        //14. Increase Prices
+        public static void IncreasePrices(BookShopContext context)
+        {
+            var books = context.Books
+                               .Where(b => b.ReleaseDate.Value.Year < 2010);
+
+            foreach (var book in books)
+            {
+                book.Price += 5;
+            }
+
+            context.SaveChanges();
+        }
+
+        //15. Remove Books
+        public static int RemoveBooks(BookShopContext context)
+        {
+            var books = context.Books.Where(b => b.Copies < 4200);
+
+            var result = books.Count();
+
+            context.Books.RemoveRange(books);
+
+            context.SaveChanges();
+
+            return result;
         }
     }
 }
